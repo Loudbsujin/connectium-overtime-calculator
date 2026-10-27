@@ -56,10 +56,14 @@ npm run build    # dist/ 에 정적 파일 생성
    - `date`는 `YYYY-MM-DD`, `type`은 `공휴일` 또는 `대체공휴일`.
    - 요일은 날짜로 자동 계산하므로 적지 않습니다. 주말 공휴일도 그대로 넣어 두면 됩니다(자동으로 차감 제외).
    - 회사 자체 휴무일(창립기념일 등)은 `type: "공휴일"`로 넣으면 함께 차감됩니다.
-3. `npm test`로 확인한 뒤 `main`에 푸시하면 Vercel이 자동 배포합니다.
+3. `npm test`로 확인한 뒤 `main`에 푸시하면 GitHub Pages에 자동 배포됩니다.
 
 목록에 없는 연도를 고르면 화면에 "이 연도 공휴일 목록이 없어 차감 없이 계산했습니다"가 표시됩니다.
 
 ## 배포
 
-GitHub `main` 브랜치에 푸시하면 Vercel이 자동으로 빌드·배포합니다(Framework: Vite, Build: `npm run build`, Output: `dist`).
+GitHub `main` 브랜치에 푸시하면 GitHub Actions(`.github/workflows/deploy.yml`)가 테스트 → 빌드 → GitHub Pages 배포를 합니다.
+진행 상황은 저장소의 Actions 탭에서 볼 수 있습니다.
+
+- 배포 주소: https://loudbsujin.github.io/connectium-overtime-calculator/
+- 하위 경로에서도 동작하도록 `vite.config.ts`의 `base`를 `"./"`로 두었습니다.
