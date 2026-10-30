@@ -39,6 +39,18 @@ interface HMValue {
 const EMPTY_HM: HMValue = { h: "", m: "" };
 const fromMinutes = (min: number): HMValue => (min > 0 ? { h: String(Math.floor(min / 60)), m: String(min % 60) } : EMPTY_HM);
 
+const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/** 글리프(‹ › + −) 대신 쓰는 아이콘 — 폰트마다 세로 정렬이 달라지지 않게 */
+function Chevron({ dir }: { dir: "left" | "right" | "down" }) {
+  const d = { left: "M15 6l-6 6 6 6", right: "M9 6l6 6-6 6", down: "M6 9l6 6 6-6" }[dir];
+  return (
+    <svg className="chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d={d} />
+    </svg>
+  );
+}
+
 function HMInput({ id, label, value, onChange, hint }: { id: string; label: string; value: HMValue; onChange: (v: HMValue) => void; hint?: string }) {
   const minuteInvalid = num(value.m) > 59;
   return (
@@ -90,14 +102,16 @@ export default function App() {
   const [holidayOpen, setHolidayOpen] = useState(false);
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [records, setRecords] = useState<MonthRecord[]>(loadRecords);
-  const [toast, setToast] = useState("");
+  // 사라질 때도 문구를 남겨 두어야 페이드아웃이 보인다
+  const [toast, setToast] = useState({ text: "", id: 0, shown: false });
 
   useEffect(() => saveSettings(settings), [settings]);
   useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(""), 2400);
+    if (!toast.shown) return;
+    const t = setTimeout(() => setToast((s) => ({ ...s, shown: false })), 2400);
     return () => clearTimeout(t);
-  }, [toast]);
+  }, [toast.id, toast.shown]);
+  const showToast = (text: string) => setToast((s) => ({ text, id: s.id + 1, shown: true }));
 
   const ym = ymKey(year, month);
   const hasData = hasHolidayData(holidays, year);
@@ -144,7 +158,7 @@ export default function App() {
     });
     setRecords(next);
     saveRecords(next);
-    setToast(existed ? `${ymLabel(ym)} 기록을 덮어썼습니다` : `${ymLabel(ym)} 기록을 저장했습니다`);
+    showToast(existed ? `${ymLabel(ym)} 기록을 덮어썼습니다` : `${ymLabel(ym)} 기록을 저장했습니다`);
   };
 
   const handleDelete = (target: string) => {
@@ -160,7 +174,7 @@ export default function App() {
     setTotal(fromMinutes(r.totalMinutes));
     setHolidayWork(fromMinutes(r.holidayWorkMinutes));
     setHolidayOpen(r.holidayWorkMinutes > 0);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
   };
 
   const updateSetting = <K extends keyof Settings>(key: K, value: Settings[K]) =>
@@ -180,7 +194,7 @@ export default function App() {
 
         <div className="month-stepper">
           <button type="button" className="icon-btn" onClick={() => shiftMonth(-1)} aria-label="이전 달">
-            ‹
+            <Chevron dir="left" />
           </button>
           <div className="month-label">
             <strong>
@@ -193,7 +207,7 @@ export default function App() {
             )}
           </div>
           <button type="button" className="icon-btn" onClick={() => shiftMonth(1)} aria-label="다음 달">
-            ›
+            <Chevron dir="right" />
           </button>
         </div>
 
@@ -220,22 +234,22 @@ export default function App() {
                 평일공휴일에 일했나요?
                 {!holidayOpen && holidayWorkMinutes > 0 && <em> 입력됨 {formatHM(holidayWorkMinutes)}</em>}
               </span>
-              <span className="chevron" aria-hidden>
-                {holidayOpen ? "−" : "+"}
-              </span>
+              <Chevron dir="down" />
             </button>
             {holidayOpen && (
-              <HMInput
-                id="holiday"
-                label="평일공휴일 근무시간"
-                hint={
-                  settings.holidayWorkMode === "separate"
-                    ? "총 근로시간에서 빼고 '휴일근로'로 따로 보여줍니다"
-                    : "설정에 따라 총 근로시간에 포함해 계산합니다"
-                }
-                value={holidayWork}
-                onChange={setHolidayWork}
-              />
+              <div className="reveal">
+                <HMInput
+                  id="holiday"
+                  label="평일공휴일 근무시간"
+                  hint={
+                    settings.holidayWorkMode === "separate"
+                      ? "총 근로시간에서 빼고 '휴일근로'로 따로 보여줍니다"
+                      : "설정에 따라 총 근로시간에 포함해 계산합니다"
+                  }
+                  value={holidayWork}
+                  onChange={setHolidayWork}
+                />
+              </div>
             )}
           </div>
         )}
@@ -284,8 +298,8 @@ export default function App() {
         <button type="button" className="primary-btn" onClick={handleSave} disabled={invalid || !totalEntered}>
           {isThisMonth ? "이번 달" : `${month}월`} 기록 저장
         </button>
-        <p className="toast" role="status">
-          {toast}
+        <p className="toast" role="status" data-shown={toast.shown}>
+          {toast.text}
         </p>
       </section>
 
@@ -316,7 +330,10 @@ export default function App() {
       </section>
 
       <details className="card settings">
-        <summary className="section-title">설정</summary>
+        <summary className="section-title">
+          설정
+          <Chevron dir="down" />
+        </summary>
         <div className="settings-body">
           <label className="setting">
             <span>월 기준시간</span>
